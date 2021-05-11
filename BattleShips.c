@@ -5,7 +5,8 @@ Completed:
 Purpose:
 */
 
-#include<stdio.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <dirent.h>
 
 // Struct used to keep track of positions on the board
@@ -91,7 +92,7 @@ void main() {
             fflush(stdin);
             scanf("%c", &response);
         }else{
-            response = "n"; // No
+            response = 'n'; // No
         }
 
         int valid = 0; // Used to check user input in while loop
@@ -127,19 +128,19 @@ void main() {
 
         int winner = 0; // 0: No winner, 1: Player wins, 2: AI wins
         while(!winner){ // Game loop continues until there is a winner
-            displayEntireBoard(&player_board, &ai_board);
+            displayEntireBoard(player_board, ai_board);
             playerMove(&ai_board);
             if(checkWin(&ai_board)){ // If player has sunk all ships on AI board...
                 winner = 1; // Player wins
             }
 
-            displayEntireBoard(&player_board, &ai_board);
+            displayEntireBoard(player_board, ai_board);
             aiMove(&player_board, &ai_data);
             if(checkWin(&player_board)){ // If AI has sunk all ships on player board...
                 winner = 2; // AI wins
             }
-            //TODO
-            //Ask to save
+            // TODO
+            // Ask to save
         }
 
         // Ask if player wishes to play again
