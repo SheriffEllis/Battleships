@@ -39,31 +39,14 @@ struct AiData{
 };
 
 //
-enum battleships{
-    /*
-    Aircraft Carrier:
-    AAAAA
-
-    Battleship:
-    BBBB
-
-    Cruiser:
-    CCC
-
-    Submarine:
-    SSS
-
-    Destroyer:
-    DD
-    */
-    aircraft_carrier = 5,
-    battleship = 4,
-    cruiser = 3,
-    submarine = 3,
-    destroyer = 2
+enum Direction{
+    up, right, down, left
 };
 
+int shipCharToSize(char shipType);
 void initialiseBoard(struct Board *board, int playerInput);
+void placeShip(struct Board *board, struct Coord position, enum Direction direction);
+struct Coord userInputPosition();
 void displayBoard(struct Board board, int obfuscate);
 void displayEntireBoard(struct Board player_board, struct Board ai_board);
 char strike(struct Board *board, struct Coord pos);
@@ -152,14 +135,87 @@ void main() {
     }
 }
 
+// Simple function to output the size of a ship based on it's type character
+int shipCharToSize(char shipType){
+    switch(toupper(shipType)){ // using toUpper() just in case character is recorded incorrectly somewhere in code
+        case 'A': // Aircraft Carrier: AAAAA
+            return 5;
+        case 'B': // Battleship: BBBB
+            return 4;
+        case 'C': // Cruiser: CCC
+            return 3;
+        case 'S': // Submarine: SSS
+            return 3;
+        case 'D': // Destroyer: DD
+            return 2;
+    }
+    return 0;
+}
+
 // Set up board with ships before game begins. When setting AI's board, playerInput = 0
 // TODO
 void initialiseBoard(struct Board *board, int playerInput){
+    // Set all points on the board to display unknown (X) initially
+    for(int i=0; i<10; i++){
+        for(int j=0; j<10; j++){
+            board->hits[i][j] = 'X';
+        }
+    }
+
+    if(playerInput){ // Player manual placement of ships
+        printf("Placing your ships...\n\n");
+        displayBoard(*board, 0);
+        printf("Ship to place: AAAAA (Aircraft Carrier)\n");
+        struct Coord position = userInputPosition();
+        printf("%d", position);
+
+        
+    }else{ // AI random placement of ships
+
+    }
+};
+
+// 
+// TODO
+void placeShip(struct Board *board, struct Coord position, enum Direction direction){
+
+};
+
+// 
+struct Coord userInputPosition(){
+    printf("Select the position of the ship head (Type a letter and number with a space inbetween like \"B 4\"\n");
+    printf("The letter must be from A to J and the number from 1 to 10):\n");
+    char letterY;
+    int numX;
+    int valid;
+    do{
+        fflush(stdin);
+        scanf("%c %d", &letterY, &numX);
+        letterY = toupper(letterY);
+        valid = (numX >= 1 && numX <= 10) && (letterY >= 'A' && letterY <= 'J'); //Number must be from 1 to 10 and letter from A to J
+        if(!valid){
+            printf("Error: Please type a letter from A to J and a number from 1 to 10 in the form \"A 10\":\n");
+        }
+    }while(!valid);
+
+    int numY = (int)letterY - 41; // Convert from char to equivalent numeric index
+    numX = numX -1; // 0 index numX
+
+    struct Coord position;
+    position.x = numX;
+    position.y = numY;
+    return position;
 };
 
 // Displays player or AI board to console. When obfuscate = 1, (on AI's board) the positions of ships are hidden
 // TODO
 void displayBoard(struct Board board, int obfuscate){
+    for(int i=0; i<10; i++){
+        for(int j=0; j<10; j++){
+            printf("%c  ",board.hits[i][j]);
+        }
+        printf("\n");
+    }
 };
 
 // Displays both boards to console making use of displayBoard() function twice
