@@ -17,12 +17,13 @@ struct Coord{
 
 // Struct that acts as a modified linked list to keep track of each piece of a boat on the board.
 struct BoatSegment{
-    struct BoatSegment *head;
-    struct BoatSegment *next;
+    struct BoatSegment *head; // Point to BoatSegment representing head of the ship
+    struct BoatSegment *next; // Point to next BoatSegment
 
     char ship_type;
     struct Coord position;
-    int isHit;
+    int isHit; // Represents which BoatSegment has been struck by enemy player
+    int isNull; // Represents if BoatSegment is part of a ship or an empty space
 };
 
 /*
@@ -38,7 +39,7 @@ y
 */
 struct Board{
     char hits[10][10];
-    struct BoatSegment *boats[10][10];
+    struct BoatSegment boats[10][10];
 };
 
 //
@@ -185,11 +186,11 @@ char * shipCharToName(char ship_type){
 // Set up board with ships before game begins. When setting AI's board, player_input = 0.
 // TODO
 void initialiseBoard(struct Board *board_ptr, int player_input){
-    // Set all points on the board to display unknown 'X' visually and all ships to NULL initially
+    // Set all points on the board to display unknown '-' visually and all BoatSegments to isNull initially
     for(int i=0; i<10; i++){
         for(int j=0; j<10; j++){
-            board_ptr->hits[i][j] = 'X';
-            board_ptr->boats[i][j] = NULL;
+            board_ptr->hits[i][j] = '-';
+            board_ptr->boats[i][j].isNull = 1;
         }
     }
 
@@ -212,40 +213,41 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
             printf("\n\n");
         }
     }else{ // AI random placement of ships
-
+        // TODO
     }
 };
 
-// 
-// TODO
+// Place all BoatSegments of a ship using a starting position and direction for the ship to point
 void placeShip(struct Board *board_ptr, struct Coord position, enum Direction direction, char ship_type){
-    struct BoatSegment boat_head;
-    board_ptr->boats[position.y][position.x] = &boat_head;
-    boat_head.position = position;
-    boat_head.ship_type = ship_type;
-    boat_head.head = &boat_head;
-    boat_head.next = NULL;
-    boat_head.isHit = 0;
+    struct BoatSegment *boat_head_ptr = &(board_ptr->boats[position.y][position.x]);
+    boat_head_ptr->position = position;
+    boat_head_ptr->ship_type = ship_type;
+    boat_head_ptr->head = boat_head_ptr;
+    boat_head_ptr->next = NULL;
+    boat_head_ptr->isHit = 0;
+    boat_head_ptr->isNull = 0;
 
     int ship_size = shipCharToSize(ship_type);
-    switch(direction){
-        case up:
-            for(int i = position.y-1; i >= position.y-ship_size; i--){ 
-                struct BoatSegment boat_segment;
-                board_ptr->boats[i][position.x] = &boat_segment;
-                struct Coord segment_pos;
-                segment_pos.x = position.x;
-                segment_pos.y = i;
-                boat_segment.position = segment_pos;
-                boat_segment.ship_type = ship_type;
-                boat_segment.head = &boat_head;
-                boat_segment.next = NULL;
-                boat_segment.isHit = 0;
-                
-                struct BoatSegment *prev_boat_segment_ptr = board_ptr->boats[i+1][position.x]; // Pointer to previous boat segment
-                prev_boat_segment_ptr->next = &boat_segment; // Give previous boat segment a pointer to current segment
-            }
-            break;
+
+    
+    for(int i = 1; i < ship_size; i++){
+        int x = position.x +i*((direction==right) -(direction==left)); // Non-branching boolean maths to decide what direction to increment the coordinates
+        int y = position.y +i*((direction==down) -(direction==up));
+
+        struct BoatSegment *boat_segment_ptr = &(board_ptr->boats[y][x]);
+        struct Coord segment_pos;
+        segment_pos.x = x;
+        segment_pos.y = y;
+        boat_segment_ptr->position = segment_pos;
+        boat_segment_ptr->ship_type = ship_type;
+        boat_segment_ptr->head = boat_head_ptr;
+        boat_segment_ptr->next = NULL;
+        boat_segment_ptr->isHit = 0;
+        boat_segment_ptr->isNull = 0;
+        
+        struct BoatSegment *prev_boat_segment_ptr; // Pointer to previous boat segment
+        prev_boat_segment_ptr = &(board_ptr->boats[y+((direction==up) -(direction==down))][x+((direction==left) -(direction==right))]); // Boolean maths to decide direction of previous BoatSegment
+        prev_boat_segment_ptr->next = boat_segment_ptr; // Give previous boat segment a pointer to current segment
     }
 };
 
@@ -255,7 +257,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case up:
             if(position.y - ship_size < 0){return 1;} // Ship goes off board
             for(int i = position.y; i >= position.y-ship_size; i--){
-                if(board.boats[i][position.x] != NULL){ // Collides with other ship
+                if(!board.boats[i][position.x].isNull){ // Collides with other ship
                     return 1;
                 }
             }
@@ -263,7 +265,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case down:
             if(position.y + ship_size > 10){return 1;} // Ship goes off board
             for(int i = position.y; i <= position.y+ship_size; i++){
-                if(board.boats[i][position.x] != NULL){ // Collides with other ship
+                if(!board.boats[i][position.x].isNull){ // Collides with other ship
                     return 1;
                 }
             }
@@ -271,7 +273,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case right:
             if(position.x + ship_size > 10){return 1;} // Ship goes off board
             for(int i = position.x; i <= position.x+ship_size; i++){
-                if(board.boats[position.y][i] != NULL){ // Collides with other ship
+                if(!board.boats[position.y][i].isNull){ // Collides with other ship
                     return 1;
                 }
             }
@@ -279,7 +281,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case left:
             if(position.x - ship_size < 0){return 1;} // Ship goes off board
             for(int i = position.x; i >= position.x-ship_size; i--){
-                if(board.boats[position.y][i] != NULL){ // Collides with other ship
+                if(!board.boats[position.y][i].isNull){ // Collides with other ship
                     return 1;
                 }
             }
@@ -291,15 +293,15 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
 // Take user input (with validation) of position to place a ship.
 // Makes sure there is at least 1 direction to face with no collisions with walls or other ships.
 struct Coord userInputPosition(struct Board board, int ship_size){
-    printf("Select a position on the board (Type a letter and number with a space inbetween like \"B 4\"\n");
-    printf("The letter must be from A to J and the number from 1 to 10):\n");
+    printf("Select a position on the board by typing a letter and number like \"B4\"\n");
+    printf("(The letter must be from A to J and the number from 1 to 10):\n");
     int valid; // Check for valid input
     struct Coord position;
     do{
         char letterY;
         int numX;
         fflush(stdin);
-        scanf("%c %d", &letterY, &numX);
+        scanf("%c%d", &letterY, &numX);
         letterY = toupper(letterY); // Board position letter must be in uppercase for consistency
         
         if(!((numX >= 1 && numX <= 10) && (letterY >= 'A' && letterY <= 'J'))){ // Number must be from 1 to 10 and letter from A to J
@@ -357,14 +359,16 @@ enum Direction userInputDirection(struct Board board, struct Coord position, int
 };
 
 // Displays player or AI board to console. When obfuscate = 1, (on AI's board) the positions of ships are hidden.
-// TODO
 void displayBoard(struct Board board, int obfuscate){
+    printf("    1  2  3  4  5  6  7  8  9  10\n");
+    printf("    -----------------------------\n");
     for(int i=0; i<10; i++){
+        printf("%c | ",(char)i + 65);
         for(int j=0; j<10; j++){
-            if(board.boats[i][j] == NULL || obfuscate){
+            if(board.boats[i][j].isNull || obfuscate){
                 printf("%c  ",board.hits[i][j]);
             }else{
-                printf("%c  ",board.boats[i][j]->ship_type);
+                printf("%c  ",board.boats[i][j].ship_type);
             }
         }
         printf("\n");
