@@ -59,7 +59,8 @@ char * shipCharToName(char ship_type);
 void initialiseBoard(struct Board *board_ptr, int player_input);
 void placeShip(struct Board *board_ptr, struct Coord position, enum Direction direction, char ship_type);
 int checkCollision(struct Board board, struct Coord position, enum Direction direction, int ship_size);
-struct Coord userInputPosition(struct Board board, int ship_size);
+struct Coord userInputShipPosition(struct Board board, int ship_size);
+struct Coord userInputStrikePosition(struct Board board);
 enum Direction userInputDirection(struct Board board, struct Coord position, int ship_size);
 void displayBoard(struct Board board, int obfuscate);
 void displayEntireBoard(struct Board player_board, struct Board ai_board);
@@ -72,7 +73,6 @@ void displaySaves();
 int savesAvailable();
 int loadGame(const char *filename, struct Board *player_board_ptr, struct Board *ai_board_ptr, struct AiData *ai_dataPtr);
 void saveGame(const char *filename, struct Board player_board, struct Board ai_board, struct AiData ai_data);
-
 
 void main() {
     int repeat = 1;
@@ -207,9 +207,9 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
             }
             printf(")\n");
             printf("Choose a position to place the ship's head\n");
-            struct Coord position = userInputPosition(*board_ptr, shipCharToSize(ship_type));
-            enum Direction direction = userInputDirection(*board_ptr, position, shipCharToSize(ship_type));
-            placeShip(board_ptr, position, direction, ship_type);
+            struct Coord position = userInputShipPosition(*board_ptr, shipCharToSize(ship_type)); // Retrieve ship position from user
+            enum Direction direction = userInputDirection(*board_ptr, position, shipCharToSize(ship_type)); // Retrieve ship direction from user
+            placeShip(board_ptr, position, direction, ship_type); // Place ship on game board
             printf("\n\n");
         }
     }else{ // AI random placement of ships
@@ -292,7 +292,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
 
 // Take user input (with validation) of position to place a ship.
 // Makes sure there is at least 1 direction to face with no collisions with walls or other ships.
-struct Coord userInputPosition(struct Board board, int ship_size){
+struct Coord userInputShipPosition(struct Board board, int ship_size){
     printf("Select a position on the board by typing a letter and number like \"B4\"\n");
     printf("(The letter must be from A to J and the number from 1 to 10):\n");
     int valid; // Check for valid input
@@ -317,12 +317,45 @@ struct Coord userInputPosition(struct Board board, int ship_size){
             // Check for if all directions collide with wall or ship
             int collides = 1; // true by default, check for at least 1 direction that does not collide
             for(int i=up; i <= left && collides; i++){ // Iterate through all 4 directions unless lack of collision found
-                if(checkCollision(board, position, i, ship_size)){collides = 0;} // If a direction that does not collide is found, collide = 0
+                if(!checkCollision(board, position, i, ship_size)){collides = 0;} // If a direction that does not collide is found, collide = 0
             }
             if(collides){
-                printf("Error: You cannot place a ship here as all directions will result in a collision, please type a different position");
+                printf("Error: You cannot place a ship here as all directions will result in a collision, please type a different position\n");
             }
             valid = !collides;
+        }
+    }while(!valid);
+    return position;
+};
+
+// Take user input (with validation) of position to strike on the board.
+// Makes sure there is not already a strike in the given position.
+struct Coord userInputStrikePosition(struct Board board){
+    printf("Select a position on the board by typing a letter and number like \"B4\"\n");
+    printf("(The letter must be from A to J and the number from 1 to 10):\n");
+    int valid; // Check for valid input
+    struct Coord position;
+    do{
+        char letterY;
+        int numX;
+        fflush(stdin);
+        scanf("%c%d", &letterY, &numX);
+        letterY = toupper(letterY); // Board position letter must be in uppercase for consistency
+        
+        if(!((numX >= 1 && numX <= 10) && (letterY >= 'A' && letterY <= 'J'))){ // Number must be from 1 to 10 and letter from A to J
+            printf("Error: Please type a letter from A to J and a number from 1 to 10 in the form \"A 10\":\n");
+            valid = 0;
+        }else{ // if the input is valid attempt to create a coordinate at that position
+            int numY = (int)letterY - (int)'A'; // Convert from char to equivalent numeric board coordinate
+            numX = numX -1; // 0 index numX
+
+            // Check if strike has already been made in this position
+            if(valid = !board.boats[numY][numX].isHit){
+                position.x = numX;
+                position.y = numY;
+            }else{
+                printf("Error: You have already struck this position, please try another\n");
+            }
         }
     }while(!valid);
     return position;
@@ -404,8 +437,7 @@ void playerMove(struct Board *aiBoardPtr){
 int checkWin(struct Board board){
 };
 
-//
-// TODO: remove .txt from displayed name
+// Displays a list of all the .txt files in the program folder which can be used to retrieve save data
 void displaySaves(){
     DIR *d;
     struct dirent *dir; // Imported directory struct for finding all files in a folder
@@ -416,6 +448,7 @@ void displaySaves(){
         {
             char *dot = strrchr(dir->d_name, '.'); // Find rightmost . in filename and create substring from there using pointer
             if (dot && !strcmp(dot, ".txt")){ // If file type is .txt, display to screen
+                *dot = '\0'; // Remove .txt from end of string by setting . to NULL which ends string
                 printf("%s\n", dir->d_name);
             }
         }
