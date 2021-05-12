@@ -9,23 +9,33 @@ Purpose:
 #include <ctype.h>
 #include <dirent.h>
 
-// Struct used to keep track of positions on the board
+// Struct used to keep track of positions on the board.
 struct Coord{
     int x;
     int y;
 };
 
-// Struct that acts as a modified linked list to keep track of each piece of a boat on the board
+// Struct that acts as a modified linked list to keep track of each piece of a boat on the board.
 struct BoatSegment{
     struct BoatSegment *head;
     struct BoatSegment *next;
 
-    char boat_type;
+    char ship_type;
     struct Coord position;
     int isHit;
 };
 
-//
+/*
+Struct that contains 2 2d arrays. One with a visual of the hit ships for the opposing player
+and the other with the BoatSegment structs that represent the battleships.
+
+hits/boats[y][x]
+ --->  x
+|
+V
+y
+
+*/
 struct Board{
     char hits[10][10];
     struct BoatSegment *boats[10][10];
@@ -43,21 +53,24 @@ enum Direction{
     up, right, down, left
 };
 
-int shipCharToSize(char shipType);
-void initialiseBoard(struct Board *board, int playerInput);
-void placeShip(struct Board *board, struct Coord position, enum Direction direction);
-struct Coord userInputPosition();
+int shipCharToSize(char ship_type);
+char * shipCharToName(char ship_type);
+void initialiseBoard(struct Board *board_ptr, int player_input);
+void placeShip(struct Board *board_ptr, struct Coord position, enum Direction direction, char ship_type);
+int checkCollision(struct Board board, struct Coord position, enum Direction direction, int ship_size);
+struct Coord userInputPosition(struct Board board, int ship_size);
+enum Direction userInputDirection(struct Board board, struct Coord position, int ship_size);
 void displayBoard(struct Board board, int obfuscate);
 void displayEntireBoard(struct Board player_board, struct Board ai_board);
-char strike(struct Board *board, struct Coord pos);
-void aiMove(struct Board *player_board, struct AiData *ai_data);
-void playerMove(struct Board *ai_board);
-int checkWin(struct Board *board);
+char strike(struct Board *board_ptr, struct Coord pos);
+void aiMove(struct Board *player_board_ptr, struct AiData *ai_dataPtr);
+void playerMove(struct Board *ai_board_ptr);
+int checkWin(struct Board board);
 
 void displaySaves();
 int savesAvailable();
-int loadGame(const char *filename, struct Board *player_board, struct Board *ai_board, struct AiData *ai_data);
-void saveGame(const char *filename, struct Board *player_board, struct Board *ai_board, struct AiData *ai_data);
+int loadGame(const char *filename, struct Board *player_board_ptr, struct Board *ai_board_ptr, struct AiData *ai_dataPtr);
+void saveGame(const char *filename, struct Board player_board, struct Board ai_board, struct AiData ai_data);
 
 
 void main() {
@@ -113,13 +126,13 @@ void main() {
         while(!winner){ // Game loop continues until there is a winner
             displayEntireBoard(player_board, ai_board);
             playerMove(&ai_board);
-            if(checkWin(&ai_board)){ // If player has sunk all ships on AI board...
+            if(checkWin(ai_board)){ // If player has sunk all ships on AI board...
                 winner = 1; // Player wins
             }
 
             displayEntireBoard(player_board, ai_board);
             aiMove(&player_board, &ai_data);
-            if(checkWin(&player_board)){ // If AI has sunk all ships on player board...
+            if(checkWin(player_board)){ // If AI has sunk all ships on player board...
                 winner = 2; // AI wins
             }
             // TODO
@@ -135,9 +148,9 @@ void main() {
     }
 }
 
-// Simple function to output the size of a ship based on it's type character
-int shipCharToSize(char shipType){
-    switch(toupper(shipType)){ // using toUpper() just in case character is recorded incorrectly somewhere in code
+// Simple function to output the size of a ship based on it's type character.
+int shipCharToSize(char ship_type){
+    switch(toupper(ship_type)){ // using toUpper() just in case character is recorded incorrectly somewhere in code
         case 'A': // Aircraft Carrier: AAAAA
             return 5;
         case 'B': // Battleship: BBBB
@@ -152,24 +165,52 @@ int shipCharToSize(char shipType){
     return 0;
 }
 
-// Set up board with ships before game begins. When setting AI's board, playerInput = 0
+// Simple function to output the name of a ship (as a pointer to a string) based on it's type character.
+char * shipCharToName(char ship_type){
+    switch(toupper(ship_type)){ // using toUpper() just in case character is recorded incorrectly somewhere in code
+        case 'A': // Aircraft Carrier: AAAAA
+            return "Aircraft Carrier";
+        case 'B': // Battleship: BBBB
+            return "Battleship";
+        case 'C': // Cruiser: CCC
+            return "Cruiser";
+        case 'S': // Submarine: SSS
+            return "Submarine";
+        case 'D': // Destroyer: DD
+            return "Destroyer";
+    }
+    return "";
+}
+
+// Set up board with ships before game begins. When setting AI's board, player_input = 0.
 // TODO
-void initialiseBoard(struct Board *board, int playerInput){
-    // Set all points on the board to display unknown (X) initially
+void initialiseBoard(struct Board *board_ptr, int player_input){
+    // Set all points on the board to display unknown 'X' visually and all ships to NULL initially
     for(int i=0; i<10; i++){
         for(int j=0; j<10; j++){
-            board->hits[i][j] = 'X';
+            board_ptr->hits[i][j] = 'X';
+            board_ptr->boats[i][j] = NULL;
         }
     }
 
-    if(playerInput){ // Player manual placement of ships
-        printf("Placing your ships...\n\n");
-        displayBoard(*board, 0);
-        printf("Ship to place: AAAAA (Aircraft Carrier)\n");
-        struct Coord position = userInputPosition();
-        printf("%d", position);
-
-        
+    char ships[] = {'A', 'B', 'C', 'S', 'D'}; // Array of each ship type to reduce redundancy of placement routine
+    if(player_input){ // Player manual placement of ships
+        printf("\nPlacing your ships...\n\n");
+        for(int ship_index = 0; ship_index < 5; ship_index++){
+            char ship_type = ships[ship_index]; // Retrieve current ship type to place
+            displayBoard(*board_ptr, 0);
+            printf("\nShip to place: %s\n", shipCharToName(ship_type));
+            printf("Size: %d (", shipCharToSize(ship_type));
+            for(int i=0; i<shipCharToSize(ship_type); i++){ // Print appearance of ship using character and size
+                printf("%c", ship_type);
+            }
+            printf(")\n");
+            printf("Choose a position to place the ship's head\n");
+            struct Coord position = userInputPosition(*board_ptr, shipCharToSize(ship_type));
+            enum Direction direction = userInputDirection(*board_ptr, position, shipCharToSize(ship_type));
+            placeShip(board_ptr, position, direction, ship_type);
+            printf("\n\n");
+        }
     }else{ // AI random placement of ships
 
     }
@@ -177,48 +218,160 @@ void initialiseBoard(struct Board *board, int playerInput){
 
 // 
 // TODO
-void placeShip(struct Board *board, struct Coord position, enum Direction direction){
+void placeShip(struct Board *board_ptr, struct Coord position, enum Direction direction, char ship_type){
+    struct BoatSegment boat_head;
+    board_ptr->boats[position.y][position.x] = &boat_head;
+    boat_head.position = position;
+    boat_head.ship_type = ship_type;
+    boat_head.head = &boat_head;
+    boat_head.next = NULL;
+    boat_head.isHit = 0;
 
+    int ship_size = shipCharToSize(ship_type);
+    switch(direction){
+        case up:
+            for(int i = position.y-1; i >= position.y-ship_size; i--){ 
+                struct BoatSegment boat_segment;
+                board_ptr->boats[i][position.x] = &boat_segment;
+                struct Coord segment_pos;
+                segment_pos.x = position.x;
+                segment_pos.y = i;
+                boat_segment.position = segment_pos;
+                boat_segment.ship_type = ship_type;
+                boat_segment.head = &boat_head;
+                boat_segment.next = NULL;
+                boat_segment.isHit = 0;
+                
+                struct BoatSegment *prev_boat_segment_ptr = board_ptr->boats[i+1][position.x]; // Pointer to previous boat segment
+                prev_boat_segment_ptr->next = &boat_segment; // Give previous boat segment a pointer to current segment
+            }
+            break;
+    }
 };
 
-// 
-struct Coord userInputPosition(){
-    printf("Select the position of the ship head (Type a letter and number with a space inbetween like \"B 4\"\n");
+// Check if a ship placed in this location and direction collides with game wall or other ship.
+int checkCollision(struct Board board, struct Coord position, enum Direction direction, int ship_size){
+    switch(direction){
+        case up:
+            if(position.y - ship_size < 0){return 1;} // Ship goes off board
+            for(int i = position.y; i >= position.y-ship_size; i--){
+                if(board.boats[i][position.x] != NULL){ // Collides with other ship
+                    return 1;
+                }
+            }
+            break;
+        case down:
+            if(position.y + ship_size > 10){return 1;} // Ship goes off board
+            for(int i = position.y; i <= position.y+ship_size; i++){
+                if(board.boats[i][position.x] != NULL){ // Collides with other ship
+                    return 1;
+                }
+            }
+            break;
+        case right:
+            if(position.x + ship_size > 10){return 1;} // Ship goes off board
+            for(int i = position.x; i <= position.x+ship_size; i++){
+                if(board.boats[position.y][i] != NULL){ // Collides with other ship
+                    return 1;
+                }
+            }
+            break;
+        case left:
+            if(position.x - ship_size < 0){return 1;} // Ship goes off board
+            for(int i = position.x; i >= position.x-ship_size; i--){
+                if(board.boats[position.y][i] != NULL){ // Collides with other ship
+                    return 1;
+                }
+            }
+            break;
+    }
+    return 0; // If no collision detected, return false
+};
+
+// Take user input (with validation) of position to place a ship.
+// Makes sure there is at least 1 direction to face with no collisions with walls or other ships.
+struct Coord userInputPosition(struct Board board, int ship_size){
+    printf("Select a position on the board (Type a letter and number with a space inbetween like \"B 4\"\n");
     printf("The letter must be from A to J and the number from 1 to 10):\n");
-    char letterY;
-    int numX;
-    int valid;
+    int valid; // Check for valid input
+    struct Coord position;
     do{
+        char letterY;
+        int numX;
         fflush(stdin);
         scanf("%c %d", &letterY, &numX);
-        letterY = toupper(letterY);
-        valid = (numX >= 1 && numX <= 10) && (letterY >= 'A' && letterY <= 'J'); //Number must be from 1 to 10 and letter from A to J
-        if(!valid){
+        letterY = toupper(letterY); // Board position letter must be in uppercase for consistency
+        
+        if(!((numX >= 1 && numX <= 10) && (letterY >= 'A' && letterY <= 'J'))){ // Number must be from 1 to 10 and letter from A to J
             printf("Error: Please type a letter from A to J and a number from 1 to 10 in the form \"A 10\":\n");
+            valid = 0;
+        }else{ // if the input is valid attempt to create a coordinate at that position
+            int numY = (int)letterY - (int)'A'; // Convert from char to equivalent numeric board coordinate
+            numX = numX -1; // 0 index numX
+
+            position.x = numX;
+            position.y = numY;
+
+            // Check for if all directions collide with wall or ship
+            int collides = 1; // true by default, check for at least 1 direction that does not collide
+            for(int i=up; i <= left && collides; i++){ // Iterate through all 4 directions unless lack of collision found
+                if(checkCollision(board, position, i, ship_size)){collides = 0;} // If a direction that does not collide is found, collide = 0
+            }
+            if(collides){
+                printf("Error: You cannot place a ship here as all directions will result in a collision, please type a different position");
+            }
+            valid = !collides;
         }
     }while(!valid);
-
-    int numY = (int)letterY - 41; // Convert from char to equivalent numeric index
-    numX = numX -1; // 0 index numX
-
-    struct Coord position;
-    position.x = numX;
-    position.y = numY;
     return position;
 };
 
-// Displays player or AI board to console. When obfuscate = 1, (on AI's board) the positions of ships are hidden
+// Take user input (with validation) of direction to place a ship.
+// Checks for collisions with walls or other ships.
+enum Direction userInputDirection(struct Board board, struct Coord position, int ship_size){
+    int valid;
+    enum Direction direction;
+    do{
+        printf("Choose a direction for the ship to face (it cannot go through a wall or other ship)\n");
+        printf("Input the direction as a number from 0 to 3\n");
+        printf("0: up\n1: right\n2: down\n3: left\n");
+        int dirNum; // Number representing direction
+        fflush(stdin);
+        scanf("%d", &dirNum);
+
+        if(dirNum < 0 || dirNum > 3){ // Direction number must be from 0 to 3
+            printf("Error: Please type a number/direction from 0 to 3\n");
+            valid = 0;
+        }else{
+            direction = (enum Direction)dirNum; // Convert input number into direction
+            if(checkCollision(board, position, direction, ship_size)){ // Make sure there is no collision with walls or other ships in chosen direction
+                printf("Error: Cannot place ship in this direction, there is a collision\n");
+                valid = 0;
+            }else{
+                valid = 1;
+            }
+        }
+    }while(!valid);
+
+    return direction;
+};
+
+// Displays player or AI board to console. When obfuscate = 1, (on AI's board) the positions of ships are hidden.
 // TODO
 void displayBoard(struct Board board, int obfuscate){
     for(int i=0; i<10; i++){
         for(int j=0; j<10; j++){
-            printf("%c  ",board.hits[i][j]);
+            if(board.boats[i][j] == NULL || obfuscate){
+                printf("%c  ",board.hits[i][j]);
+            }else{
+                printf("%c  ",board.boats[i][j]->ship_type);
+            }
         }
         printf("\n");
     }
 };
 
-// Displays both boards to console making use of displayBoard() function twice
+// Displays both boards to console making use of displayBoard() function twice.
 void displayEntireBoard(struct Board player_board, struct Board ai_board){
     printf("AI board:\n");
     displayBoard(ai_board, 1);
@@ -229,22 +382,22 @@ void displayEntireBoard(struct Board player_board, struct Board ai_board){
 
 //
 // TODO
-char strike(struct Board *board, struct Coord pos){
+char strike(struct Board *board_ptr, struct Coord pos){
 };
 
 //
 // TODO
-void aiMove(struct Board *player_board, struct AiData *ai_data){
+void aiMove(struct Board *player_board_ptr, struct AiData *ai_dataPtr){
 };
 
 //
 // TODO
-void playerMove(struct Board *aiBoard){
+void playerMove(struct Board *aiBoardPtr){
 };
 
 //
 // TODO
-int checkWin(struct Board *board){
+int checkWin(struct Board board){
 };
 
 //
@@ -289,11 +442,11 @@ int savesAvailable(){
 
 //
 // TODO
-int loadGame(const char *filename, struct Board *player_board, struct Board *ai_board, struct AiData *ai_data){
+int loadGame(const char *filename, struct Board *player_board_ptr, struct Board *ai_board_ptr, struct AiData *ai_dataPtr){
     return 0;
 };
 
 //
 // TODO
-void saveGame(const char *filename, struct Board *player_board, struct Board *ai_board, struct AiData *ai_data){
+void saveGame(const char *filename, struct Board player_board, struct Board ai_board, struct AiData ai_data){
 };
