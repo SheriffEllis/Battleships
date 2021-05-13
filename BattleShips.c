@@ -24,8 +24,9 @@ struct BoatSegment{
 
     char ship_type;
     struct Coord position;
-    int isHit; // Represents which BoatSegment has been struck by enemy player
-    int isNull; // Represents if BoatSegment is part of a ship or an empty space
+    int is_hit; // Represents which BoatSegment has been struck by enemy player
+    int is_sunk; // Represents if all BoatSegments in the the ship have been struck
+    int is_null; // Represents if BoatSegment is part of a ship or an empty space
 };
 
 /*
@@ -72,7 +73,7 @@ void AIChooseShipPosAndDir(struct Board, int, struct Coord *, enum Direction *);
 void displayBoard(struct Board, int);
 void displayEntireBoard(struct Board, struct Board);
 
-char strike(struct Board *, struct Coord);
+char strike(struct Board *, struct Coord, int *);
 void aiMove(struct Board *, struct AiData *);
 void playerMove(struct Board *);
 int checkWin(struct Board);
@@ -107,7 +108,7 @@ void main() {
                 printf("Choose a save to load (type its name into the console):\n");
                 displaySaves();
                 printf("\n");
-                char str[50];
+                char *str;
                 fflush(stdin);
                 gets(str);
                 // TODO: add .txt to entered string
@@ -133,20 +134,20 @@ void main() {
         }
 
         int winner = 0; // 0: No winner, 1: Player wins, 2: AI wins
-        while(!winner){ // Game loop continues until there is a winner
+        while(winner == 0){ // Game loop continues until there is a winner
             displayEntireBoard(player_board, ai_board);
             playerMove(&ai_board);
             if(checkWin(ai_board)){ // If player has sunk all ships on AI board...
                 winner = 1; // Player wins
-            }
-
-            displayEntireBoard(player_board, ai_board);
-            aiMove(&player_board, &ai_data);
-            if(checkWin(player_board)){ // If AI has sunk all ships on player board...
-                winner = 2; // AI wins
-            }
-            // TODO
-            // Ask to save
+            }else{
+                //displayEntireBoard(player_board, ai_board);
+                aiMove(&player_board, &ai_data);
+                if(checkWin(player_board)){ // If AI has sunk all ships on player board...
+                    winner = 2; // AI wins
+                }
+                // TODO
+                // Ask to save
+            }            
         }
 
         // Ask if player wishes to play again
@@ -169,7 +170,7 @@ int randRange(int min, int max){
 
 // Simple function to output the size of a ship based on it's type character.
 int shipCharToSize(char ship_type){
-    switch(toupper(ship_type)){ // using toUpper() just in case character is recorded incorrectly somewhere in code
+    switch(toupper(ship_type)){
         case 'A': // Aircraft Carrier: AAAAA
             return 5;
         case 'B': // Battleship: BBBB
@@ -186,7 +187,7 @@ int shipCharToSize(char ship_type){
 
 // Simple function to output the name of a ship (as a pointer to a string) based on it's type character.
 char * shipCharToName(char ship_type){
-    switch(toupper(ship_type)){ // using toUpper() just in case character is recorded incorrectly somewhere in code
+    switch(toupper(ship_type)){
         case 'A': // Aircraft Carrier: AAAAA
             return "Aircraft Carrier";
         case 'B': // Battleship: BBBB
@@ -203,11 +204,12 @@ char * shipCharToName(char ship_type){
 
 // Set up board with ships before game begins. When setting AI's board, player_input = 0.
 void initialiseBoard(struct Board *board_ptr, int player_input){
-    // Set all points on the board to display unknown '?' visually and all BoatSegments to isNull initially
+    // Set all points on the board to display unknown '?' visually and all BoatSegments to is_null initially
     for(int i=0; i<10; i++){
         for(int j=0; j<10; j++){
             board_ptr->hits[i][j] = '?';
-            board_ptr->boats[i][j].isNull = 1;
+            board_ptr->boats[i][j].is_null = 1;
+            board_ptr->boats[i][j].is_hit = 0;
         }
     }
 
@@ -248,8 +250,9 @@ void placeShip(struct Board *board_ptr, struct Coord position, enum Direction di
     boat_head_ptr->ship_type = ship_type;
     boat_head_ptr->head = boat_head_ptr;
     boat_head_ptr->next = NULL;
-    boat_head_ptr->isHit = 0;
-    boat_head_ptr->isNull = 0;
+    boat_head_ptr->is_hit = 0;
+    boat_head_ptr->is_sunk = 0;
+    boat_head_ptr->is_null = 0;
 
     int ship_size = shipCharToSize(ship_type);
 
@@ -266,8 +269,9 @@ void placeShip(struct Board *board_ptr, struct Coord position, enum Direction di
         boat_segment_ptr->ship_type = ship_type;
         boat_segment_ptr->head = boat_head_ptr;
         boat_segment_ptr->next = NULL;
-        boat_segment_ptr->isHit = 0;
-        boat_segment_ptr->isNull = 0;
+        boat_segment_ptr->is_hit = 0;
+        boat_segment_ptr->is_sunk = 0;
+        boat_segment_ptr->is_null = 0;
         
         struct BoatSegment *prev_boat_segment_ptr; // Pointer to previous boat segment
         prev_boat_segment_ptr = &(board_ptr->boats[y+((direction==up) -(direction==down))][x+((direction==left) -(direction==right))]); // Boolean maths to decide direction of previous BoatSegment
@@ -281,7 +285,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case up:
             if(position.y - ship_size < 0){return 1;} // Ship goes off board
             for(int i = position.y; i >= position.y-ship_size; i--){
-                if(!board.boats[i][position.x].isNull){ // Collides with other ship
+                if(!board.boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -289,7 +293,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case down:
             if(position.y + ship_size > 10){return 1;} // Ship goes off board
             for(int i = position.y; i <= position.y+ship_size; i++){
-                if(!board.boats[i][position.x].isNull){ // Collides with other ship
+                if(!board.boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -297,7 +301,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case right:
             if(position.x + ship_size > 10){return 1;} // Ship goes off board
             for(int i = position.x; i <= position.x+ship_size; i++){
-                if(!board.boats[position.y][i].isNull){ // Collides with other ship
+                if(!board.boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -305,7 +309,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case left:
             if(position.x - ship_size < 0){return 1;} // Ship goes off board
             for(int i = position.x; i >= position.x-ship_size; i--){
-                if(!board.boats[position.y][i].isNull){ // Collides with other ship
+                if(!board.boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -376,7 +380,7 @@ struct Coord userInputStrikePosition(struct Board board){
             numX = numX -1; // 0 index numX
 
             // Check if strike has already been made in this position
-            if(valid = !board.boats[numY][numX].isHit){
+            if(valid = !board.boats[numY][numX].is_hit){ // valid if not already hit
                 position.x = numX;
                 position.y = numY;
             }else{
@@ -446,8 +450,10 @@ void displayBoard(struct Board board, int obfuscate){
             char board_char;
             if(obfuscate){
                 board_char = board.hits[i][j];
-            }else if(board.boats[i][j].isNull){
+            }else if(board.boats[i][j].is_null){
                 board_char = '-';
+            }else if(board.boats[i][j].is_hit){
+                board_char = tolower(board.boats[i][j].ship_type); // Indicate to player when part of their ship is hit
             }else{
                 board_char = board.boats[i][j].ship_type;
             }
@@ -462,15 +468,46 @@ void displayEntireBoard(struct Board player_board, struct Board ai_board){
     printf("AI board:\n");
     displayBoard(ai_board, 1);
     printf("\n\n--------------------------------------------\n\n");
-    printf("Your board:\n\n");
+    printf("Your board:\n");
     displayBoard(player_board, 0);
+    printf("\n");
 }
 
 
 
-//
-// TODO
-char strike(struct Board *board_ptr, struct Coord pos){
+// Strikes ship at position on board, marking BoatSegment as hit. Check if all BoatSegments have been hit to decide if ship sunk.
+// Returns '-' if no ship was hit at the location. is_sunk flag is set to true if ship was sunk on current hit.
+char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
+    board_ptr->boats[position.y][position.x].is_hit = 1;
+    if(board_ptr->boats[position.y][position.x].is_null){ // If a blank space was hit, reveal 'X' and return no ship hit character
+        board_ptr->hits[position.y][position.x] = '-';
+        return '-';
+    }// Since condition ends in return, no else needed
+    board_ptr->hits[position.y][position.x] = 'X'; // Reveal that (anonymous) BoatSegment has been hit
+    
+    *is_sunk_ptr = 1; // Start with assumption that ship is sunk, if unhit segment found is sunk is set to false
+    struct BoatSegment *boat_segment_ptr = board_ptr->boats[position.y][position.x].head; // Start from head of boat to check if sunk
+    do{
+        if(!boat_segment_ptr->is_hit){
+            *is_sunk_ptr = 0;
+        }
+        boat_segment_ptr = boat_segment_ptr->next; // Iterate through linked list
+    }while(boat_segment_ptr != NULL); // End when end of boat reached
+
+    if(*is_sunk_ptr){ // If ship is sunk, update on board
+        boat_segment_ptr = board_ptr->boats[position.y][position.x].head; // Start from head again
+        do{
+            boat_segment_ptr->is_sunk = 1; // Mark as sunk in BoatSegment array
+
+            int x = boat_segment_ptr->position.x;
+            int y = boat_segment_ptr->position.y;
+            board_ptr->hits[y][x] = tolower(boat_segment_ptr->ship_type); // Mark as sunk in hit array by setting as lowercase version of ship character
+            
+            boat_segment_ptr = boat_segment_ptr->next; // Iterate through linked list
+        }while(boat_segment_ptr != NULL); // End when end of boat reached
+    }
+
+    return board_ptr->boats[position.y][position.x].ship_type;
 }
 
 //
@@ -481,11 +518,23 @@ void aiMove(struct Board *player_board_ptr, struct AiData *ai_data_ptr){
 //
 // TODO
 void playerMove(struct Board *ai_board_ptr){
+    printf("Choose a position on the AI board to strike\n");
+    struct Coord position = userInputStrikePosition(*ai_board_ptr);
+    int is_sunk;
+    char struck_ship_type = strike(ai_board_ptr, position, &is_sunk);
+    if(struck_ship_type == '-'){
+        printf("\nYou MISSED!\n\n");
+    }else if(is_sunk){
+        printf("\nYou SUNK the AI's %s!\n\n", shipCharToName(struck_ship_type));
+    }else{
+        printf("\nYou HIT the AI's ship!\n\n");
+    }
 }
 
 //
 // TODO
 int checkWin(struct Board board){
+    return 0;
 }
 
 
