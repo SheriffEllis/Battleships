@@ -54,25 +54,30 @@ enum Direction{
     up, right, down, left
 };
 
-int shipCharToSize(char ship_type);
-char * shipCharToName(char ship_type);
-void initialiseBoard(struct Board *board_ptr, int player_input);
-void placeShip(struct Board *board_ptr, struct Coord position, enum Direction direction, char ship_type);
-int checkCollision(struct Board board, struct Coord position, enum Direction direction, int ship_size);
-struct Coord userInputShipPosition(struct Board board, int ship_size);
-struct Coord userInputStrikePosition(struct Board board);
-enum Direction userInputDirection(struct Board board, struct Coord position, int ship_size);
-void displayBoard(struct Board board, int obfuscate);
-void displayEntireBoard(struct Board player_board, struct Board ai_board);
-char strike(struct Board *board_ptr, struct Coord pos);
-void aiMove(struct Board *player_board_ptr, struct AiData *ai_dataPtr);
-void playerMove(struct Board *ai_board_ptr);
-int checkWin(struct Board board);
+int randRange(int);
+
+int shipCharToSize(char);
+char * shipCharToName(char);
+void initialiseBoard(struct Board *, int);
+void placeShip(struct Board *, struct Coord, enum Direction, char);
+int checkCollision(struct Board, struct Coord, enum Direction, int);
+
+struct Coord userInputShipPosition(struct Board, int);
+struct Coord userInputStrikePosition(struct Board);
+enum Direction userInputDirection(struct Board, struct Coord, int);
+
+void displayBoard(struct Board, int);
+void displayEntireBoard(struct Board, struct Board);
+
+char strike(struct Board *, struct Coord);
+void aiMove(struct Board *, struct AiData *);
+void playerMove(struct Board *);
+int checkWin(struct Board);
 
 void displaySaves();
 int savesAvailable();
-int loadGame(const char *filename, struct Board *player_board_ptr, struct Board *ai_board_ptr, struct AiData *ai_dataPtr);
-void saveGame(const char *filename, struct Board player_board, struct Board ai_board, struct AiData ai_data);
+int loadGame(const char *, struct Board *, struct Board *, struct AiData *);
+void saveGame(const char *, struct Board, struct Board, struct AiData);
 
 void main() {
     int repeat = 1;
@@ -194,6 +199,7 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
         }
     }
 
+    // Placing ships on the board
     char ships[] = {'A', 'B', 'C', 'S', 'D'}; // Array of each ship type to reduce redundancy of placement routine
     if(player_input){ // Player manual placement of ships
         printf("\nPlacing your ships...\n\n");
@@ -215,6 +221,11 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
     }else{ // AI random placement of ships
         // TODO
     }
+};
+
+// Output a random number from 0 to max
+int randRange(int max){
+
 };
 
 // Place all BoatSegments of a ship using a starting position and direction for the ship to point
@@ -391,6 +402,8 @@ enum Direction userInputDirection(struct Board board, struct Coord position, int
     return direction;
 };
 
+
+
 // Displays player or AI board to console. When obfuscate = 1, (on AI's board) the positions of ships are hidden.
 void displayBoard(struct Board board, int obfuscate){
     printf("    1  2  3  4  5  6  7  8  9  10\n");
@@ -417,6 +430,8 @@ void displayEntireBoard(struct Board player_board, struct Board ai_board){
     displayBoard(player_board, 0);
 };
 
+
+
 //
 // TODO
 char strike(struct Board *board_ptr, struct Coord pos){
@@ -424,18 +439,20 @@ char strike(struct Board *board_ptr, struct Coord pos){
 
 //
 // TODO
-void aiMove(struct Board *player_board_ptr, struct AiData *ai_dataPtr){
+void aiMove(struct Board *player_board_ptr, struct AiData *ai_data_ptr){
 };
 
 //
 // TODO
-void playerMove(struct Board *aiBoardPtr){
+void playerMove(struct Board *ai_board_ptr){
 };
 
 //
 // TODO
 int checkWin(struct Board board){
 };
+
+
 
 // Displays a list of all the .txt files in the program folder which can be used to retrieve save data
 void displaySaves(){
@@ -479,7 +496,7 @@ int savesAvailable(){
 
 //
 // TODO
-int loadGame(const char *filename, struct Board *player_board_ptr, struct Board *ai_board_ptr, struct AiData *ai_dataPtr){
+int loadGame(const char *filename, struct Board *player_board_ptr, struct Board *ai_board_ptr, struct AiData *ai_data_ptr){
     return 0;
 };
 
