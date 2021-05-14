@@ -130,7 +130,7 @@ void main() {
 
         // Ask if player wishes to play again
         char response;
-        printf("Would you like to play again? (y/n): ");
+        printf("Would you like to play again? (Type 'y' or 'n'): ");
         fflush(stdin);
         scanf("%c", &response);
         // 1 if user input y or Y, 0 otherwise
@@ -264,23 +264,23 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
     switch(direction){
         case up:
             if(position.y - ship_size < 0){return 1;} // Ship goes off board
-            for(int i = position.y; i >= position.y-ship_size; i--){
+            for(int i = position.y; i > position.y-ship_size; i--){
                 if(!board.boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
                 }
             }
             break;
         case down:
-            if(position.y + ship_size > 10){return 1;} // Ship goes off board
-            for(int i = position.y; i <= position.y+ship_size; i++){
+            if(position.y + ship_size > 9){return 1;} // Ship goes off board
+            for(int i = position.y; i < position.y+ship_size; i++){
                 if(!board.boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
                 }
             }
             break;
         case right:
-            if(position.x + ship_size > 10){return 1;} // Ship goes off board
-            for(int i = position.x; i <= position.x+ship_size; i++){
+            if(position.x + ship_size > 9){return 1;} // Ship goes off board
+            for(int i = position.x; i < position.x+ship_size; i++){
                 if(!board.boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
                 }
@@ -288,7 +288,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
             break;
         case left:
             if(position.x - ship_size < 0){return 1;} // Ship goes off board
-            for(int i = position.x; i >= position.x-ship_size; i--){
+            for(int i = position.x; i > position.x-ship_size; i--){
                 if(!board.boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
                 }
@@ -391,6 +391,7 @@ enum Direction userInputDirection(struct Board board, struct Coord position, int
             direction = (enum Direction)dirNum; // Convert input number into direction
             if(checkCollision(board, position, direction, ship_size)){ // Make sure there is no collision with walls or other ships in chosen direction
                 printf("Error: Cannot place ship in this direction, there is a collision\n");
+                checkCollision(board, position, direction, ship_size);
                 valid = 0;
             }else{
                 valid = 1;
