@@ -46,14 +46,14 @@ struct Board{
     int score; // Number of ships sunk
 };
 
-//
+// Contains the information needed for the AI to make the next move based on it's previous move
 struct AiData{
     enum game_difficulty {easy, normal, hard} difficulty; // Gamemode decides the overall behavior of the AI
     int destroyMode; // 0: search mode, 1: destroy mode. AI is in search mode by default
     struct BoatSegment *lastSucHit; // pointer to last successfully hit BoatSegment
 };
 
-//
+// Enum used throughout program to represent a cardinal direction on the board
 enum Direction{
     up, right, down, left
 };
@@ -78,10 +78,8 @@ char strike(struct Board *, struct Coord, int *);
 void aiMove(struct Board *, struct AiData *);
 void playerMove(struct Board *);
 
-void displaySaves();
-int savesAvailable();
-int loadGame(const char *, struct Board *, struct Board *, struct AiData *);
-void saveGame(const char *, struct Board, struct Board, struct AiData);
+void writeToLeaderboard();
+void displayLeaderboard();
 
 void main() {
     srand(time(0)); // Seed pseudorandom number generator with current time
@@ -91,47 +89,22 @@ void main() {
         struct AiData ai_data;
         struct Board player_board;
         struct Board ai_board;
+        ai_data.destroyMode = 0; // AI initially set to search mode
 
-        char response;
-        // Only ask to load saves if saves available otherwise default to no
-        if(savesAvailable()){
-            printf("Would you like to load a saved game? (y/n): ");
+        int valid;
+        do{
+            printf("Choose a game difficulty from 0 to 2:\n0: Easy\n1: Normal\n2: Hard\n");
             fflush(stdin);
-            scanf("%c", &response);
-        }else{
-            response = 'n'; // No
-        }
+            scanf("%d", &ai_data.difficulty);
+            valid = ai_data.difficulty >= 0 && ai_data.difficulty <= 2;
+            if(!valid){
+                printf("\nPlease choose a number from 0 to 2\n");
+            }
+        }while(!valid);
 
-        int valid = 0; // Used to check user input in while loop
-        if(tolower(response) == 'y'){ // 1 if response y or Y, 0 otherwise
-            do{
-                printf("Choose a save to load (type its name into the console):\n");
-                displaySaves();
-                printf("\n");
-                char *str;
-                fflush(stdin);
-                gets(str);
-                // TODO: add .txt to entered string
-                valid = loadGame(str, &player_board, &ai_board, &ai_data); // Returns 1 on successful load
-                if(!valid){
-                    printf("Please type a valid save name\n");
-                }
-            }while(!valid);
-        }else{
-            ai_data.destroyMode = 0; // AI initially set to search mode
-
-            do{
-                printf("Choose a game difficulty from 0 to 2:\n0: Easy\n1: Normal\n2: Hard\n");
-                scanf("%d", &ai_data.difficulty);
-                valid = ai_data.difficulty >= 0 && ai_data.difficulty <= 2;
-                if(!valid){
-                    printf("\nPlease choose a number from 0 to 2\n");
-                }
-            }while(!valid);
-
-            initialiseBoard(&player_board, 1);
-            initialiseBoard(&ai_board, 0);
-        }
+        initialiseBoard(&player_board, 1);
+        initialiseBoard(&ai_board, 0);
+        
 
         printf("\n\nLet the game begin!\n\n");
         int winner = 0; // 0: No winner, 1: Player wins, 2: AI wins
@@ -156,6 +129,7 @@ void main() {
         }
 
         // Ask if player wishes to play again
+        char response;
         printf("Would you like to play again? (y/n): ");
         fflush(stdin);
         scanf("%c", &response);
@@ -520,8 +494,7 @@ char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
     return board_ptr->boats[position.y][position.x].ship_type;
 }
 
-//
-// TODO
+// Determines and applies the AI's move based on data from previous move
 void aiMove(struct Board *player_board_ptr, struct AiData *ai_data_ptr){
     struct Coord position;
     int is_sunk;
@@ -569,7 +542,7 @@ void aiMove(struct Board *player_board_ptr, struct AiData *ai_data_ptr){
     }
 }
 
-// 
+// Asks player what their move will be, takes inputs with validation, and applies move
 void playerMove(struct Board *ai_board_ptr){
     printf("Choose a position on the AI board to strike\n");
     struct Coord position = userInputStrikePosition(*ai_board_ptr);
@@ -586,53 +559,14 @@ void playerMove(struct Board *ai_board_ptr){
 
 
 
-// Displays a list of all the .txt files in the program folder which can be used to retrieve save data
-void displaySaves(){
-    DIR *d;
-    struct dirent *dir; // Imported directory struct for finding all files in a folder
-    d = opendir("."); // Open the current folder
-    if (d) // If there is anything in the current folder
-    {
-        while ((dir = readdir(d)) != NULL) // Read out files until end of list reached
-        {
-            char *dot = strrchr(dir->d_name, '.'); // Find rightmost . in filename and create substring from there using pointer
-            if (dot && !strcmp(dot, ".txt")){ // If file type is .txt, display to screen
-                *dot = '\0'; // Remove .txt from end of string by setting . to NULL which ends string
-                printf("%s\n", dir->d_name);
-            }
-        }
-        closedir(d);
-    }
-}
+// 
+// TODO
+void writeToLeaderboard(){
 
-// Similar to displaySaves() except it returns 1 on finding a .txt file and does not display the files
-int savesAvailable(){
-    DIR *d;
-    struct dirent *dir; // Imported directory struct for finding all files in a folder
-    d = opendir("."); // Open the current folder
-
-    int isSave = 0; // flag to check for any .txt files
-    if (d) // If there is anything in the current folder
-    {
-        while ((dir = readdir(d)) != NULL && !isSave) // Read out files until end of list reached or .txt file found
-        {
-            char *dot = strrchr(dir->d_name, '.'); // Find rightmost . in filename and create substring from there using pointer
-            if (dot && !strcmp(dot, ".txt")){ // If file type is .txt, return 1
-                isSave = 1;
-            }
-        }
-        closedir(d);
-    }
-    return isSave;
 }
 
 //
 // TODO
-int loadGame(const char *filename, struct Board *player_board_ptr, struct Board *ai_board_ptr, struct AiData *ai_data_ptr){
-    return 0;
-}
+void displayLeaderboard(){
 
-//
-// TODO
-void saveGame(const char *filename, struct Board player_board, struct Board ai_board, struct AiData ai_data){
 }
