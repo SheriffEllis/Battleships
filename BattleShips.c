@@ -11,6 +11,9 @@ Purpose:
 #include <ctype.h>
 #include <dirent.h>
 
+#define SHIP_SET {'A', 'B', 'C', 'S', 'D'}
+#define NUM_OF_SHIPS 5
+
 // Struct used to keep track of positions on the board.
 struct Coord{
     int x;
@@ -29,27 +32,25 @@ struct BoatSegment{
     int is_null; // Represents if BoatSegment is part of a ship or an empty space
 };
 
-/*
-Struct that contains 2 2d arrays. One with a visual of the hit ships for the opposing player
-and the other with the BoatSegment structs that represent the battleships.
-
-hits/boats[y][x]
- --->  x
-|
-V
-y
-
-*/
+// Struct that contains 2 2d arrays. One with a visual of the hit ships for the opposing player
+// and the other with the BoatSegment structs that represent the battleships.
+// 
+// hits/boats[y][x]
+//  --->  x
+// | - - - -
+// V - - - -
+// y - - - -
 struct Board{
-    char hits[10][10];
-    struct BoatSegment boats[10][10];
+    char hits[10][10]; // Visual info about an opponent's board
+    struct BoatSegment boats[10][10]; // Representation of each segment of all the boats on the board
+    int score; // Number of ships sunk
 };
 
 //
 struct AiData{
-    enum game_difficulty {easy, normal, hard} difficulty;
-    enum search_mode {search, destroy} mode; // AI is in search mode by default
-    struct Coord lastSucHit; // Position of last successful hit
+    enum game_difficulty {easy, normal, hard} difficulty; // Gamemode decides the overall behavior of the AI
+    int destroyMode; // 0: search mode, 1: destroy mode. AI is in search mode by default
+    struct BoatSegment *lastSucHit; // pointer to last successfully hit BoatSegment
 };
 
 //
@@ -76,7 +77,6 @@ void displayEntireBoard(struct Board, struct Board);
 char strike(struct Board *, struct Coord, int *);
 void aiMove(struct Board *, struct AiData *);
 void playerMove(struct Board *);
-int checkWin(struct Board);
 
 void displaySaves();
 int savesAvailable();
@@ -118,7 +118,7 @@ void main() {
                 }
             }while(!valid);
         }else{
-            ai_data.mode = search; // AI initially set to search mode
+            ai_data.destroyMode = 0; // AI initially set to search mode
 
             do{
                 printf("Choose a game difficulty from 0 to 2:\n0: Easy\n1: Normal\n2: Hard\n");
@@ -133,17 +133,22 @@ void main() {
             initialiseBoard(&ai_board, 0);
         }
 
+        printf("\n\nLet the game begin!\n\n");
         int winner = 0; // 0: No winner, 1: Player wins, 2: AI wins
         while(winner == 0){ // Game loop continues until there is a winner
             displayEntireBoard(player_board, ai_board);
             playerMove(&ai_board);
-            if(checkWin(ai_board)){ // If player has sunk all ships on AI board...
+            if(ai_board.score >= NUM_OF_SHIPS){ // If player has sunk all ships on AI board...
                 winner = 1; // Player wins
+                displayEntireBoard(player_board, ai_board);
+                printf("\nYou Win!\n");
             }else{
                 //displayEntireBoard(player_board, ai_board);
                 aiMove(&player_board, &ai_data);
-                if(checkWin(player_board)){ // If AI has sunk all ships on player board...
+                if(player_board.score >= NUM_OF_SHIPS){ // If AI has sunk all ships on player board...
                     winner = 2; // AI wins
+                    displayEntireBoard(player_board, ai_board);
+                    printf("\nYou Lost!\n");
                 }
                 // TODO
                 // Ask to save
@@ -212,12 +217,13 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
             board_ptr->boats[i][j].is_hit = 0;
         }
     }
+    board_ptr->score = 0;
 
     // Placing ships on the board
-    char ships[] = {'A', 'B', 'C', 'S', 'D'}; // Array of each ship type to reduce redundancy of placement routine
+    char ships[] = SHIP_SET; // Array of each ship type to reduce redundancy of placement routine
     if(player_input){ // Player manual placement of ships
         printf("\nPlacing your ships...\n\n");
-        for(int ship_index = 0; ship_index < 5; ship_index++){
+        for(int ship_index = 0; ship_index < NUM_OF_SHIPS; ship_index++){
             char ship_type = ships[ship_index]; // Retrieve current ship type to place
             displayBoard(*board_ptr, 0);
             printf("\nShip to place: %s\n", shipCharToName(ship_type));
@@ -450,6 +456,8 @@ void displayBoard(struct Board board, int obfuscate){
             char board_char;
             if(obfuscate){
                 board_char = board.hits[i][j];
+            }else if(board.boats[i][j].is_null && board.boats[i][j].is_hit){
+                board_char = '+';
             }else if(board.boats[i][j].is_null){
                 board_char = '-';
             }else if(board.boats[i][j].is_hit){
@@ -505,6 +513,8 @@ char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
             
             boat_segment_ptr = boat_segment_ptr->next; // Iterate through linked list
         }while(boat_segment_ptr != NULL); // End when end of boat reached
+
+        board_ptr->score++; // Increment the score against this board
     }
 
     return board_ptr->boats[position.y][position.x].ship_type;
@@ -513,10 +523,53 @@ char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
 //
 // TODO
 void aiMove(struct Board *player_board_ptr, struct AiData *ai_data_ptr){
+    struct Coord position;
+    int is_sunk;
+    char struck_ship_type;
+    if(!ai_data_ptr->destroyMode){ // Search mode
+        // Pick a random point on the board, if it hits and game is not in easy difficulty, switch to investigate mode
+        do{
+            position.x = randRange(0, 9); // Choose a random position on the board
+            position.y = randRange(0, 9);
+        }while(player_board_ptr->boats[position.y][position.x].is_hit); // Find a point that has not already been hit
+        struck_ship_type = strike(player_board_ptr, position, &is_sunk); // Strike at random position
+        
+        // If a ship is in the position, the game difficulty is above easy and the ship isn't already sunk
+        if(struck_ship_type != '-' && ai_data_ptr->difficulty != easy && !is_sunk){
+            // Enter destroy mode on next turn
+            ai_data_ptr->lastSucHit = &(player_board_ptr->boats[position.y][position.x]);
+            ai_data_ptr->destroyMode = 1;
+        }
+    }else{ // Destroy mode
+        struct BoatSegment *boat_segment_ptr = ai_data_ptr->lastSucHit->head;
+        while(boat_segment_ptr->is_hit && boat_segment_ptr->next != NULL){ // Iterate through linked list until unhit BoatSegment found
+            boat_segment_ptr = boat_segment_ptr->next;
+        }
+        // This state should not be reachable unless AI mode has been switched manually (though it will not cause any errors)
+        if(boat_segment_ptr->is_hit){printf("Warning: AI mode appears to have been tampered with");}
+        
+        position = boat_segment_ptr->position;
+        struck_ship_type = strike(player_board_ptr, position, &is_sunk);
+
+        if(ai_data_ptr->difficulty == normal){ // 3/10 chance to switch back to search mode if in normal difficulty
+            if(randRange(1,10) <= 4){ 
+                ai_data_ptr->destroyMode = 0;
+            }
+        }
+
+        if(is_sunk){ai_data_ptr->destroyMode = 0;} // Return to search mode if this sunk the ship
+    }
+
+    if(struck_ship_type == '-'){
+        printf("\nAI MISSED!\n\n");
+    }else if(is_sunk){
+        printf("\nThe AI SUNK your %s!\n\n", shipCharToName(struck_ship_type));
+    }else{
+        printf("\nThe AI HIT your %s!\n\n", shipCharToName(struck_ship_type));
+    }
 }
 
-//
-// TODO
+// 
 void playerMove(struct Board *ai_board_ptr){
     printf("Choose a position on the AI board to strike\n");
     struct Coord position = userInputStrikePosition(*ai_board_ptr);
@@ -529,12 +582,6 @@ void playerMove(struct Board *ai_board_ptr){
     }else{
         printf("\nYou HIT the AI's ship!\n\n");
     }
-}
-
-//
-// TODO
-int checkWin(struct Board board){
-    return 0;
 }
 
 
