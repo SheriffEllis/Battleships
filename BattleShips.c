@@ -78,7 +78,7 @@ char strike(struct Board *, struct Coord, int *);
 void aiMove(struct Board *, struct AiData *);
 void playerMove(struct Board *);
 
-void writeToLeaderboard();
+void writeToLeaderboard(int, char *);
 void displayLeaderboard();
 
 void main() {
@@ -104,10 +104,10 @@ void main() {
 
         initialiseBoard(&player_board, 1);
         initialiseBoard(&ai_board, 0);
-        
 
         printf("\n\nLet the game begin!\n\n");
         int winner = 0; // 0: No winner, 1: Player wins, 2: AI wins
+        int moves = 0; // Counter for moves used for leaderboard
         while(winner == 0){ // Game loop continues until there is a winner
             displayEntireBoard(player_board, ai_board);
             playerMove(&ai_board);
@@ -116,24 +116,48 @@ void main() {
                 displayEntireBoard(player_board, ai_board);
                 printf("\nYou Win!\n");
             }else{
-                //displayEntireBoard(player_board, ai_board);
                 aiMove(&player_board, &ai_data);
                 if(player_board.score >= NUM_OF_SHIPS){ // If AI has sunk all ships on player board...
                     winner = 2; // AI wins
                     displayEntireBoard(player_board, ai_board);
                     printf("\nYou Lost!\n");
                 }
-                // TODO
-                // Ask to save
-            }            
+            }
+            moves++;        
         }
 
-        // Ask if player wishes to play again
+        displayLeaderboard();
+
         char response;
-        printf("Would you like to play again? (Type 'y' or 'n'): ");
+        if(winner == 1){ // If player won
+            char *difficulty_str;
+            switch(ai_data.difficulty){
+                case easy:
+                    difficulty_str = "easy";
+                    break;
+                case normal:
+                    difficulty_str = "normal";
+                    break;
+                case hard:
+                    difficulty_str = "hard";
+                    break;
+                default:
+                    difficulty_str = "ERROR";
+            }
+            printf("\nYou beat the AI in %d moves on %s difficulty\n", moves, difficulty_str);
+        
+            // Ask if player wishes to add their number of moves to the scoreboard
+            printf("Would you like to add your score to the leaderboard? (Type 'y' or 'n'): ");
+            fflush(stdin);
+            scanf("%c", &response);
+            // true if user input y or Y, false otherwise
+            if(tolower(response) == 'y'){writeToLeaderboard(moves, difficulty_str);}
+        }
+        
+        // Ask if player wishes to play again
+        printf("\nWould you like to play again? (Type 'y' or 'n'): ");
         fflush(stdin);
         scanf("%c", &response);
-        // 1 if user input y or Y, 0 otherwise
         repeat = (tolower(response) == 'y');
     }
 }
@@ -561,13 +585,32 @@ void playerMove(struct Board *ai_board_ptr){
 
 
 // 
-// TODO
-void writeToLeaderboard(){
+void writeToLeaderboard(int moves, char *difficulty_str){
+    char name[50];
+    printf("Enter your name to put on the leaderboard: ");
+    fflush(stdin);
+    gets(name);
 
+    FILE *file;
+    if(!(file = fopen("leaderboard.txt", "a"))){
+        printf("Error opening/creating file: Could not write to leaderboard\n");
+        return;
+    }
+
+    fprintf(file, "%s\t: Beat AI in %d moves on %s\n", name, moves, difficulty_str);
+    fclose(file);
 }
 
 //
-// TODO
 void displayLeaderboard(){
+    FILE *file;
+    if(!(file = fopen("leaderboard.txt", "r"))){
+        printf("Could not find a leaderboard file.\n");
+        return;
+    }
 
+    char character;
+    while(fscanf(file, "%c", &character) != EOF){
+        printf("%c",character);
+    }
 }
