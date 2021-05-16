@@ -84,7 +84,7 @@ int shipCharToSize(char);
 char * shipCharToName(char);
 void initialiseBoard(struct Board *, int);
 void placeShip(struct Board *, struct Coord, enum Direction, char);
-int checkCollision(struct Board, struct Coord, enum Direction, int);
+int checkCollision(struct BoatSegment [10][10], struct Coord, enum Direction, int);
 
 struct Coord userInputShipPosition(struct Board, int);
 struct Coord userInputStrikePosition(struct Board);
@@ -304,12 +304,12 @@ void placeShip(struct Board *board_ptr, struct Coord position, enum Direction di
 }
 
 // Check if a ship placed in this location and direction collides with game wall or other ship.
-int checkCollision(struct Board board, struct Coord position, enum Direction direction, int ship_size){
+int checkCollision(struct BoatSegment boats[10][10], struct Coord position, enum Direction direction, int ship_size){
     switch(direction){
         case up:
             if(position.y - ship_size < 0){return 1;} // Ship goes off board
             for(int i = position.y; i > position.y-ship_size; i--){
-                if(!board.boats[i][position.x].is_null){ // Collides with other ship
+                if(!boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -317,7 +317,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case down:
             if(position.y + ship_size > 9){return 1;} // Ship goes off board
             for(int i = position.y; i < position.y+ship_size; i++){
-                if(!board.boats[i][position.x].is_null){ // Collides with other ship
+                if(!boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -325,7 +325,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case right:
             if(position.x + ship_size > 9){return 1;} // Ship goes off board
             for(int i = position.x; i < position.x+ship_size; i++){
-                if(!board.boats[position.y][i].is_null){ // Collides with other ship
+                if(!boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -333,7 +333,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
         case left:
             if(position.x - ship_size < 0){return 1;} // Ship goes off board
             for(int i = position.x; i > position.x-ship_size; i--){
-                if(!board.boats[position.y][i].is_null){ // Collides with other ship
+                if(!boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
                 }
             }
@@ -371,7 +371,7 @@ struct Coord userInputShipPosition(struct Board board, int ship_size){
             // Check for if all directions collide with wall or ship
             int collides = 1; // true by default, check for at least 1 direction that does not collide
             for(int i=up; i <= left && collides; i++){ // Iterate through all 4 directions unless lack of collision found
-                if(!checkCollision(board, position, i, ship_size)){collides = 0;} // If a direction that does not collide is found, collides = 0
+                if(!checkCollision(board.boats, position, i, ship_size)){collides = 0;} // If a direction that does not collide is found, collides = 0
             }
             if(collides){
                 printf("Error: You cannot place a ship here as all directions will result in a collision, please type a different position\n");
@@ -433,9 +433,9 @@ enum Direction userInputDirection(struct Board board, struct Coord position, int
             valid = 0;
         }else{
             direction = (enum Direction)dirNum; // Convert input number into direction
-            if(checkCollision(board, position, direction, ship_size)){ // Make sure there is no collision with walls or other ships in chosen direction
+            if(checkCollision(board.boats, position, direction, ship_size)){ // Make sure there is no collision with walls or other ships in chosen direction
                 printf("Error: Cannot place ship in this direction, there is a collision\n");
-                checkCollision(board, position, direction, ship_size);
+                checkCollision(board.boats, position, direction, ship_size);
                 valid = 0;
             }else{
                 valid = 1;
@@ -455,7 +455,7 @@ void AIChooseShipPosAndDir(struct Board board, int ship_size, struct Coord *posi
 
         // Check for if all directions collide with wall or ship
         for(int i=up; i <= left && collides; i++){ // Iterate through all 4 directions unless lack of collision found
-            if(!checkCollision(board, *position_ptr, i, ship_size)){
+            if(!checkCollision(board.boats, *position_ptr, i, ship_size)){
                 collides = 0; // If a direction that does not collide is found, collides = 0
                 *direction = i; // Output first valid direction
             }
