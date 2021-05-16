@@ -16,7 +16,7 @@ Purpose:
     The player and AI will choose positions on the board to hit until one or the other destroys all their opponent's ships.
 
     At this point the leaderboard is displayed (if leaderboard.txt exists, if not it is created). If the player won they are asked
-    if they wish to add their score to the leaderboard. After this the player is asked if they wish to player again. If yes, the program
+    if they wish to add their score to the leaderboard. After this the player is asked if they wish to play again. If yes, the program
     loops back to the beginning.
 */
 
@@ -24,7 +24,6 @@ Purpose:
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
-#include <dirent.h>
 
 // 'A': Aircraft Carrier (AAAAA)
 // 'B': Battleship (BBBB)
@@ -105,7 +104,12 @@ void main() {
     srand(time(0)); // Seed pseudorandom number generator with current time
     int repeat = 1;
     while(repeat){ // CRITERIA 7: Program loops to start
-        printf("Battleships!\n\n");
+        printf("Welcome to Battleships!\n\n");
+        printf("How to play:\n");
+        printf("In this game you must strategically place your ships in a way you feel would best avoid\n");
+        printf("being hit by the enemy AI. Once you have placed your ships on your board you must strike\n");
+        printf("your enemy's ships. Whoever takes down all of their opponent's ships first wins the game.\n\n");
+
         struct AiData ai_data;
         struct Board player_board;
         struct Board ai_board;
@@ -272,6 +276,7 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
 // Place all BoatSegments of a ship using a starting position and direction for the ship to point
 // CRITERIA 4: Takes an input of a 2d array of BoatSegment structs to edit
 void placeShip(struct BoatSegment boats[10][10], struct Coord position, enum Direction direction, char ship_type){
+    // Start with the boat head and initialise it
     struct BoatSegment *boat_head_ptr = &(boats[position.y][position.x]);
     boat_head_ptr->position = position;
     boat_head_ptr->ship_type = ship_type;
@@ -282,9 +287,7 @@ void placeShip(struct BoatSegment boats[10][10], struct Coord position, enum Dir
     boat_head_ptr->is_null = 0;
 
     int ship_size = shipCharToSize(ship_type);
-
-
-    for(int i = 1; i < ship_size; i++){
+    for(int i = 1; i < ship_size; i++){ // Iterate through placing each segment of the ship on the board until the ship size is reached
         int x = position.x +i*((direction==right) -(direction==left)); // Non-branching boolean maths to decide what direction to increment the coordinates
         int y = position.y +i*((direction==down) -(direction==up));
 
@@ -431,6 +434,7 @@ enum Direction userInputDirection(struct Board board, struct Coord position, int
         printf("0: up\n1: right\n2: down\n3: left\n");
         int dirNum; // Number representing direction
         fflush(stdin);
+        // CRITERIA 6 (4): User interacts with program
         scanf("%d", &dirNum);
 
         if(dirNum < 0 || dirNum > 3){ // Direction number must be from 0 to 3
@@ -509,7 +513,7 @@ void displayEntireBoard(struct Board player_board, struct Board ai_board){
 
 // Strikes ship at position on board, marking BoatSegment as hit. Check if all BoatSegments have been hit to decide if ship sunk.
 // Returns '-' if no ship was hit at the location. is_sunk flag is set to true if ship was sunk on current hit.
-// CRITERIA 5: Input and return at least one variables of type int *
+// CRITERIA 5: Input and return at least one variable of type int *
 char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
     board_ptr->boats[position.y][position.x].is_hit = 1;
     if(board_ptr->boats[position.y][position.x].is_null){ // If a blank space was hit, reveal 'X' and return no ship hit character
