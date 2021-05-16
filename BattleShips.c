@@ -5,12 +5,12 @@ Completed: 16/05/2021
 Purpose:
     A text-based implementation of the boardgame battleships. The player plays against the computer/AI.
     The game starts by asking the player to choose a difficulty setting which will determine the behavior of the AI.
-    
+
     Easy - AI picks random positions on the board to strike every turn.
     Normal - AI will pick random positions until a ship is hit. Once hit, the AI will work its way down the ship but each turn
         has a 3/10 chance to "forget" and return to striking random positions.
     Hard - AI will pick random positions until a ship is hit. Once hit, the AI will work its way down the ship until it is destroyed.
-    
+
     After this the player is prompted to place their ships on their board by inputting a position (e.g B4) and a direction for each ship.
     Once the player has placed all their ships, the AI places theirs (Using a pseudorandom number generator) and the game begins.
     The player and AI will choose positions on the board to hit until one or the other destroys all their opponent's ships.
@@ -104,7 +104,7 @@ void displayLeaderboard();
 void main() {
     srand(time(0)); // Seed pseudorandom number generator with current time
     int repeat = 1;
-    while(repeat){ // Overall program loop
+    while(repeat){ // CRITERIA 7: Program loops to start
         printf("Battleships!\n\n");
         struct AiData ai_data;
         struct Board player_board;
@@ -112,10 +112,10 @@ void main() {
         ai_data.destroyMode = 0; // AI initially set to search mode
 
         int valid; // Input validation boolean
-        do{
+        do{ // CRITERIA 2: Repitition
             printf("Choose a game difficulty from 0 to 2:\n0: Easy\n1: Normal\n2: Hard\n");
             fflush(stdin);
-            scanf("%d", &ai_data.difficulty);
+            scanf("%d", &ai_data.difficulty); // CRITERIA 6 (1): User interacts with program
             valid = ai_data.difficulty >= 0 && ai_data.difficulty <= 2; // Difficulty must be from 0 to 2
             if(!valid){
                 printf("\nPlease choose a number from 0 to 2\n");
@@ -131,6 +131,7 @@ void main() {
         while(winner == 0){ // Game loop continues until there is a winner
             displayEntireBoard(player_board, ai_board);
             playerMove(&ai_board); // Player makes a move on the AI's board
+            // CRITERIA 1: Selection
             if(ai_board.score >= NUM_OF_SHIPS){ // If player has sunk all ships on AI board...
                 winner = 1; // Player wins
                 displayEntireBoard(player_board, ai_board);
@@ -178,6 +179,7 @@ void main() {
         printf("\nWould you like to play again? (Type 'y' or 'n'): ");
         fflush(stdin);
         scanf("%c", &response);
+        // CRITERIA 7: Program loops to start
         repeat = (tolower(response) == 'y'); // Sets repeat to true if player inputs Y or y, continuing the main while loop
     }
 }
@@ -208,7 +210,7 @@ int shipCharToSize(char ship_type){
     return 0;
 }
 
-// Simple function to output the name of a ship (as a pointer to a string) based on it's type character.
+// Simple function to output the name of a ship (as a pointer to a string/char[]) based on it's type character.
 char * shipCharToName(char ship_type){
     switch(toupper(ship_type)){
         case 'A': // Aircraft Carrier: AAAAA
@@ -268,6 +270,7 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
 }
 
 // Place all BoatSegments of a ship using a starting position and direction for the ship to point
+// CRITERIA 4: Takes an input of a 2d array of BoatSegment structs to edit
 void placeShip(struct BoatSegment boats[10][10], struct Coord position, enum Direction direction, char ship_type){
     struct BoatSegment *boat_head_ptr = &(boats[position.y][position.x]);
     boat_head_ptr->position = position;
@@ -355,6 +358,7 @@ struct Coord userInputShipPosition(struct Board board, int ship_size){
         char letterY;
         int numX;
         fflush(stdin);
+        // CRITERIA 6 (2): User interacts with program
         scanf("%c%d", &letterY, &numX);
         letterY = toupper(letterY); // Board position letter must be in uppercase for consistency
 
@@ -393,6 +397,7 @@ struct Coord userInputStrikePosition(struct Board board){
         char letterY;
         int numX;
         fflush(stdin);
+        // CRITERIA 6 (3): User interacts with program
         scanf("%c%d", &letterY, &numX);
         letterY = toupper(letterY); // Board position letter must be in uppercase for consistency
 
@@ -504,6 +509,7 @@ void displayEntireBoard(struct Board player_board, struct Board ai_board){
 
 // Strikes ship at position on board, marking BoatSegment as hit. Check if all BoatSegments have been hit to decide if ship sunk.
 // Returns '-' if no ship was hit at the location. is_sunk flag is set to true if ship was sunk on current hit.
+// CRITERIA 5: Input and return at least one variables of type int *
 char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
     board_ptr->boats[position.y][position.x].is_hit = 1;
     if(board_ptr->boats[position.y][position.x].is_null){ // If a blank space was hit, reveal 'X' and return no ship hit character
@@ -622,6 +628,7 @@ void writeToLeaderboard(int moves, char *difficulty_str){
 }
 
 // Displays text in leaderboard.txt directly to the console
+// CRITERIA 3: at least one input file
 void displayLeaderboard(){
     FILE *file;
     if(!(file = fopen("leaderboard.txt", "r"))){
