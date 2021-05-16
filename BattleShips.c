@@ -313,7 +313,7 @@ void placeShip(struct BoatSegment boats[10][10], struct Coord position, enum Dir
 int checkCollision(struct Board board, struct Coord position, enum Direction direction, int ship_size){
     switch(direction){
         case up:
-            if(position.y - ship_size < 0){return 1;} // Ship goes off board
+            if(position.y - (ship_size-1) < 0){return 1;} // Ship goes off board
             for(int i = position.y; i > position.y-ship_size; i--){
                 if(!board.boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
@@ -321,7 +321,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
             }
             break;
         case down:
-            if(position.y + ship_size > 9){return 1;} // Ship goes off board
+            if(position.y + (ship_size-1) > 9){return 1;} // Ship goes off board
             for(int i = position.y; i < position.y+ship_size; i++){
                 if(!board.boats[i][position.x].is_null){ // Collides with other ship
                     return 1;
@@ -329,7 +329,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
             }
             break;
         case right:
-            if(position.x + ship_size > 9){return 1;} // Ship goes off board
+            if(position.x + (ship_size-1) > 9){return 1;} // Ship goes off board
             for(int i = position.x; i < position.x+ship_size; i++){
                 if(!board.boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
@@ -337,7 +337,7 @@ int checkCollision(struct Board board, struct Coord position, enum Direction dir
             }
             break;
         case left:
-            if(position.x - ship_size < 0){return 1;} // Ship goes off board
+            if(position.x - (ship_size-1) < 0){return 1;} // Ship goes off board
             for(int i = position.x; i > position.x-ship_size; i--){
                 if(!board.boats[position.y][i].is_null){ // Collides with other ship
                     return 1;
