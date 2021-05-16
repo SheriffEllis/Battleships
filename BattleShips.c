@@ -83,7 +83,7 @@ int randRange(int, int);
 int shipCharToSize(char);
 char * shipCharToName(char);
 void initialiseBoard(struct Board *, int);
-void placeShip(struct Board *, struct Coord, enum Direction, char);
+void placeShip(struct BoatSegment [10][10], struct Coord, enum Direction, char);
 int checkCollision(struct Board, struct Coord, enum Direction, int);
 
 struct Coord userInputShipPosition(struct Board, int);
@@ -253,7 +253,7 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
             printf("Choose a position to place the ship's head\n");
             struct Coord position = userInputShipPosition(*board_ptr, shipCharToSize(ship_type)); // Retrieve ship position from user
             enum Direction direction = userInputDirection(*board_ptr, position, shipCharToSize(ship_type)); // Retrieve ship direction from user
-            placeShip(board_ptr, position, direction, ship_type); // Place ship on game board
+            placeShip(board_ptr->boats, position, direction, ship_type); // Place ship on game board
             printf("\n\n");
         }
     }else{ // AI random placement of ships
@@ -262,14 +262,14 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
             struct Coord position;
             enum Direction direction;
             AIChooseShipPosAndDir(*board_ptr, shipCharToSize(ship_type), &position, &direction); // Choose a random position and direction
-            placeShip(board_ptr, position, direction, ship_type); // Place ship on game board
+            placeShip(board_ptr->boats, position, direction, ship_type); // Place ship on game board
         }
     }
 }
 
 // Place all BoatSegments of a ship using a starting position and direction for the ship to point
-void placeShip(struct Board *board_ptr, struct Coord position, enum Direction direction, char ship_type){
-    struct BoatSegment *boat_head_ptr = &(board_ptr->boats[position.y][position.x]);
+void placeShip(struct BoatSegment boats[10][10], struct Coord position, enum Direction direction, char ship_type){
+    struct BoatSegment *boat_head_ptr = &(boats[position.y][position.x]);
     boat_head_ptr->position = position;
     boat_head_ptr->ship_type = ship_type;
     boat_head_ptr->head = boat_head_ptr;
@@ -285,7 +285,7 @@ void placeShip(struct Board *board_ptr, struct Coord position, enum Direction di
         int x = position.x +i*((direction==right) -(direction==left)); // Non-branching boolean maths to decide what direction to increment the coordinates
         int y = position.y +i*((direction==down) -(direction==up));
 
-        struct BoatSegment *boat_segment_ptr = &(board_ptr->boats[y][x]);
+        struct BoatSegment *boat_segment_ptr = &(boats[y][x]);
         struct Coord segment_pos;
         segment_pos.x = x;
         segment_pos.y = y;
@@ -298,7 +298,7 @@ void placeShip(struct Board *board_ptr, struct Coord position, enum Direction di
         boat_segment_ptr->is_null = 0;
 
         struct BoatSegment *prev_boat_segment_ptr; // Pointer to previous boat segment
-        prev_boat_segment_ptr = &(board_ptr->boats[y+((direction==up) -(direction==down))][x+((direction==left) -(direction==right))]); // Boolean maths to decide direction of previous BoatSegment
+        prev_boat_segment_ptr = &(boats[y+((direction==up) -(direction==down))][x+((direction==left) -(direction==right))]); // Boolean maths to decide direction of previous BoatSegment
         prev_boat_segment_ptr->next = boat_segment_ptr; // Give previous boat segment a pointer to current segment
     }
 }
