@@ -1,8 +1,23 @@
 /*
 ACS130, Individual C Assignment 3
 Written by: Sherif El Sawwaf
-Completed:
+Completed: 16/05/2021
 Purpose:
+    A text-based implementation of the boardgame battleships. The player plays against the computer/AI.
+    The game starts by asking the player to choose a difficulty setting which will determine the behavior of the AI.
+    
+    Easy - AI picks random positions on the board to strike every turn.
+    Normal - AI will pick random positions until a ship is hit. Once hit, the AI will work its way down the ship but each turn
+        has a 3/10 chance to "forget" and return to striking random positions.
+    Hard - AI will pick random positions until a ship is hit. Once hit, the AI will work its way down the ship until it is destroyed.
+    
+    After this the player is prompted to place their ships on their board by inputting a position (e.g B4) and a direction for each ship.
+    Once the player has placed all their ships, the AI places theirs (Using a pseudorandom number generator) and the game begins.
+    The player and AI will choose positions on the board to hit until one or the other destroys all their opponent's ships.
+
+    At this point the leaderboard is displayed (if leaderboard.txt exists, if not it is created). If the player won they are asked
+    if they wish to add their score to the leaderboard. After this the player is asked if they wish to player again. If yes, the program
+    loops back to the beginning.
 */
 
 #include <stdio.h>
@@ -11,8 +26,13 @@ Purpose:
 #include <ctype.h>
 #include <dirent.h>
 
-#define SHIP_SET {'A', 'B', 'C', 'S', 'D'}
-#define NUM_OF_SHIPS 5
+// 'A': Aircraft Carrier (AAAAA)
+// 'B': Battleship (BBBB)
+// 'C': Cruiser (CCC)
+// 'S': Submarine (SSS)
+// 'D': Destroyer (DD)
+#define SHIP_SET {'A', 'B', 'C', 'S', 'D'} // Customise amount of ships and order of placement
+#define NUM_OF_SHIPS 5 // Must match number of ships in SHIP_SET
 
 // Struct used to keep track of positions on the board.
 struct Coord{
@@ -34,7 +54,7 @@ struct BoatSegment{
 
 // Struct that contains 2 2d arrays. One with a visual of the hit ships for the opposing player
 // and the other with the BoatSegment structs that represent the battleships.
-// 
+//
 // hits/boats[y][x]
 //  --->  x
 // | - - - -
@@ -42,7 +62,7 @@ struct BoatSegment{
 // y - - - -
 struct Board{
     char hits[10][10]; // Visual info about an opponent's board
-    struct BoatSegment boats[10][10]; // Representation of each segment of all the boats on the board
+    struct BoatSegment boats[10][10]; // 2d array of structs representing each segment of all the boats on the board
     int score; // Number of ships sunk
 };
 
@@ -84,52 +104,52 @@ void displayLeaderboard();
 void main() {
     srand(time(0)); // Seed pseudorandom number generator with current time
     int repeat = 1;
-    while(repeat){
+    while(repeat){ // Overall program loop
         printf("Battleships!\n\n");
         struct AiData ai_data;
         struct Board player_board;
         struct Board ai_board;
         ai_data.destroyMode = 0; // AI initially set to search mode
 
-        int valid;
+        int valid; // Input validation boolean
         do{
             printf("Choose a game difficulty from 0 to 2:\n0: Easy\n1: Normal\n2: Hard\n");
             fflush(stdin);
             scanf("%d", &ai_data.difficulty);
-            valid = ai_data.difficulty >= 0 && ai_data.difficulty <= 2;
+            valid = ai_data.difficulty >= 0 && ai_data.difficulty <= 2; // Difficulty must be from 0 to 2
             if(!valid){
                 printf("\nPlease choose a number from 0 to 2\n");
             }
         }while(!valid);
 
-        initialiseBoard(&player_board, 1);
-        initialiseBoard(&ai_board, 0);
+        initialiseBoard(&player_board, 1); // Sets board and places player's ships
+        initialiseBoard(&ai_board, 0); // Sets board and automatically places AI's ships
 
         printf("\n\nLet the game begin!\n\n");
         int winner = 0; // 0: No winner, 1: Player wins, 2: AI wins
-        int moves = 0; // Counter for moves used for leaderboard
+        int moves = 0; // Counter of moves used in game for leaderboard
         while(winner == 0){ // Game loop continues until there is a winner
             displayEntireBoard(player_board, ai_board);
-            playerMove(&ai_board);
+            playerMove(&ai_board); // Player makes a move on the AI's board
             if(ai_board.score >= NUM_OF_SHIPS){ // If player has sunk all ships on AI board...
                 winner = 1; // Player wins
                 displayEntireBoard(player_board, ai_board);
                 printf("\nYou Win!\n");
             }else{
-                aiMove(&player_board, &ai_data);
+                aiMove(&player_board, &ai_data); // AI makes a move on the player's board based on it's last move (ai_data)
                 if(player_board.score >= NUM_OF_SHIPS){ // If AI has sunk all ships on player board...
                     winner = 2; // AI wins
                     displayEntireBoard(player_board, ai_board);
                     printf("\nYou Lost!\n");
                 }
             }
-            moves++;        
+            moves++; // Increment moves counter after a round
         }
 
-        displayLeaderboard();
+        displayLeaderboard(); // Reads leaderboard.txt file to screen (if there is one)
 
         char response;
-        if(winner == 1){ // If player won
+        if(winner == 1){ // Only ask to add to leaderboard if player won
             char *difficulty_str;
             switch(ai_data.difficulty){
                 case easy:
@@ -145,20 +165,20 @@ void main() {
                     difficulty_str = "ERROR";
             }
             printf("\nYou beat the AI in %d moves on %s difficulty\n", moves, difficulty_str);
-        
-            // Ask if player wishes to add their number of moves to the scoreboard
+
+            // Ask if player wishes to add their number of moves and difficulty to the leaderboard
             printf("Would you like to add your score to the leaderboard? (Type 'y' or 'n'): ");
             fflush(stdin);
             scanf("%c", &response);
             // true if user input y or Y, false otherwise
-            if(tolower(response) == 'y'){writeToLeaderboard(moves, difficulty_str);}
+            if(tolower(response) == 'y'){writeToLeaderboard(moves, difficulty_str);} // Write moves and difficulty to leaderboard
         }
-        
+
         // Ask if player wishes to play again
         printf("\nWould you like to play again? (Type 'y' or 'n'): ");
         fflush(stdin);
         scanf("%c", &response);
-        repeat = (tolower(response) == 'y');
+        repeat = (tolower(response) == 'y'); // Sets repeat to true if player inputs Y or y, continuing the main while loop
     }
 }
 
@@ -207,7 +227,7 @@ char * shipCharToName(char ship_type){
 
 // Set up board with ships before game begins. When setting AI's board, player_input = 0.
 void initialiseBoard(struct Board *board_ptr, int player_input){
-    // Set all points on the board to display unknown '?' visually and all BoatSegments to is_null initially
+    // Set all points on the board to display unknown '?' visually and all BoatSegments to be null and not hit initially
     for(int i=0; i<10; i++){
         for(int j=0; j<10; j++){
             board_ptr->hits[i][j] = '?';
@@ -218,7 +238,7 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
     board_ptr->score = 0;
 
     // Placing ships on the board
-    char ships[] = SHIP_SET; // Array of each ship type to reduce redundancy of placement routine
+    char ships[] = SHIP_SET; // Array of all ship types and their order to be placed on the board (can be customised by changing SHIP_SET and NUM_OF_SHIPS)
     if(player_input){ // Player manual placement of ships
         printf("\nPlacing your ships...\n\n");
         for(int ship_index = 0; ship_index < NUM_OF_SHIPS; ship_index++){
@@ -237,7 +257,7 @@ void initialiseBoard(struct Board *board_ptr, int player_input){
             printf("\n\n");
         }
     }else{ // AI random placement of ships
-        for(int ship_index = 0; ship_index < 5; ship_index++){
+        for(int ship_index = 0; ship_index < NUM_OF_SHIPS; ship_index++){
             char ship_type = ships[ship_index]; // Retrieve current ship type to place
             struct Coord position;
             enum Direction direction;
@@ -260,7 +280,7 @@ void placeShip(struct Board *board_ptr, struct Coord position, enum Direction di
 
     int ship_size = shipCharToSize(ship_type);
 
-    
+
     for(int i = 1; i < ship_size; i++){
         int x = position.x +i*((direction==right) -(direction==left)); // Non-branching boolean maths to decide what direction to increment the coordinates
         int y = position.y +i*((direction==down) -(direction==up));
@@ -276,7 +296,7 @@ void placeShip(struct Board *board_ptr, struct Coord position, enum Direction di
         boat_segment_ptr->is_hit = 0;
         boat_segment_ptr->is_sunk = 0;
         boat_segment_ptr->is_null = 0;
-        
+
         struct BoatSegment *prev_boat_segment_ptr; // Pointer to previous boat segment
         prev_boat_segment_ptr = &(board_ptr->boats[y+((direction==up) -(direction==down))][x+((direction==left) -(direction==right))]); // Boolean maths to decide direction of previous BoatSegment
         prev_boat_segment_ptr->next = boat_segment_ptr; // Give previous boat segment a pointer to current segment
@@ -337,7 +357,7 @@ struct Coord userInputShipPosition(struct Board board, int ship_size){
         fflush(stdin);
         scanf("%c%d", &letterY, &numX);
         letterY = toupper(letterY); // Board position letter must be in uppercase for consistency
-        
+
         if(!((numX >= 1 && numX <= 10) && (letterY >= 'A' && letterY <= 'J'))){ // Number must be from 1 to 10 and letter from A to J
             printf("Error: Please type a letter from A to J and a number from 1 to 10 in the form \"A 10\":\n");
             valid = 0;
@@ -375,7 +395,7 @@ struct Coord userInputStrikePosition(struct Board board){
         fflush(stdin);
         scanf("%c%d", &letterY, &numX);
         letterY = toupper(letterY); // Board position letter must be in uppercase for consistency
-        
+
         if(!((numX >= 1 && numX <= 10) && (letterY >= 'A' && letterY <= 'J'))){ // Number must be from 1 to 10 and letter from A to J
             printf("Error: Please type a letter from A to J and a number from 1 to 10 in the form \"A 10\":\n");
             valid = 0;
@@ -491,7 +511,7 @@ char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
         return '-';
     }// Since condition ends in return, no else needed
     board_ptr->hits[position.y][position.x] = 'X'; // Reveal that (anonymous) BoatSegment has been hit
-    
+
     *is_sunk_ptr = 1; // Start with assumption that ship is sunk, if unhit segment found is sunk is set to false
     struct BoatSegment *boat_segment_ptr = board_ptr->boats[position.y][position.x].head; // Start from head of boat to check if sunk
     do{
@@ -509,7 +529,7 @@ char strike(struct Board *board_ptr, struct Coord position, int *is_sunk_ptr){
             int x = boat_segment_ptr->position.x;
             int y = boat_segment_ptr->position.y;
             board_ptr->hits[y][x] = tolower(boat_segment_ptr->ship_type); // Mark as sunk in hit array by setting as lowercase version of ship character
-            
+
             boat_segment_ptr = boat_segment_ptr->next; // Iterate through linked list
         }while(boat_segment_ptr != NULL); // End when end of boat reached
 
@@ -531,7 +551,7 @@ void aiMove(struct Board *player_board_ptr, struct AiData *ai_data_ptr){
             position.y = randRange(0, 9);
         }while(player_board_ptr->boats[position.y][position.x].is_hit); // Find a point that has not already been hit
         struck_ship_type = strike(player_board_ptr, position, &is_sunk); // Strike at random position
-        
+
         // If a ship is in the position, the game difficulty is above easy and the ship isn't already sunk
         if(struck_ship_type != '-' && ai_data_ptr->difficulty != easy && !is_sunk){
             // Enter destroy mode on next turn
@@ -545,12 +565,12 @@ void aiMove(struct Board *player_board_ptr, struct AiData *ai_data_ptr){
         }
         // This state should not be reachable unless AI mode has been switched manually (though it will not cause any errors)
         if(boat_segment_ptr->is_hit){printf("Warning: AI mode appears to have been tampered with");}
-        
+
         position = boat_segment_ptr->position;
         struck_ship_type = strike(player_board_ptr, position, &is_sunk);
 
         if(ai_data_ptr->difficulty == normal){ // 3/10 chance to switch back to search mode if in normal difficulty
-            if(randRange(1,10) <= 4){ 
+            if(randRange(1,10) <= 4){
                 ai_data_ptr->destroyMode = 0;
             }
         }
@@ -584,7 +604,7 @@ void playerMove(struct Board *ai_board_ptr){
 
 
 
-// 
+// Takes player's name, number of moves and difficulty setting (as a string) and writes that data to a text file called leaderboard.txt
 void writeToLeaderboard(int moves, char *difficulty_str){
     char name[50];
     printf("Enter your name to put on the leaderboard: ");
@@ -601,7 +621,7 @@ void writeToLeaderboard(int moves, char *difficulty_str){
     fclose(file);
 }
 
-//
+// Displays text in leaderboard.txt directly to the console
 void displayLeaderboard(){
     FILE *file;
     if(!(file = fopen("leaderboard.txt", "r"))){
@@ -609,8 +629,11 @@ void displayLeaderboard(){
         return;
     }
 
+    // Display everything in the leaderboard.txt character by character until end of file reached
     char character;
     while(fscanf(file, "%c", &character) != EOF){
         printf("%c",character);
     }
+
+    fclose(file);
 }
